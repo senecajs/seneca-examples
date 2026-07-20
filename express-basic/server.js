@@ -3,43 +3,50 @@
 
 const Express = require('express')
 const Seneca = require('seneca')
-const { cdata } = require('./list/utility')
-
-console.log(cdata);
+const { cdata, hexToName } = require('./list/utility')
 
 const app = Express()
 
-// TODO:
-// 1. extend to support red, green, blue - generate PR
+// Matches a 3 or 6 digit hex color code, with or without a leading '#'.
+const HEX_RE = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i
+
+function expandShortHex (hex) {
+  // e.g. 'f00' -> 'ff0000'
+  return hex.split('').map((c) => c + c).join('')
+}
 
 app.use('/color/:name', function (req, res) {
-  let cdata = req.params.name
-  console.log('NAME', cdata);
+  const input = req.params.name.trim()
 
-  let code = '#cccccc'
-  switch (cdata) {
-    case 'AliceBlue':
-      code = '#f0f8ff'
-      break
-    case 'BurlyWood':
-      code = '#deb887'
-      break
-    case 'red':
-      code = '#ff0000'
-      break
-    case 'green':
-      code = '#00ff00'
-      break
-    case 'blue':
-      code = '#0000ff'
-      break
-    case 'ForestGreen':
-      code = '#228b22'
-      break
-    default:
-      break
+  const hexMatch = input.match(HEX_RE)
+
+  if (hexMatch) {
+    // Issue #3: reverse lookup - hex code -> color name.
+    let hex = hexMatch[1].toLowerCase()
+    if (hex.length === 3) {
+      hex = expandShortHex(hex)
+    }
+
+    const name = hexToName[hex]
+    if (name) {
+      res.send(name)
+    } else {
+      res.status(404).send('Unknown color code: ' + input)
+    }
+    return
   }
-  res.send(code)
+
+  // Issue #2: forward lookup - color name -> hex code (case-insensitive).
+  const name = input.toLowerCase()
+  const code = cdata[name]
+
+  if (code) {
+    res.send(code)
+  } else {
+    res.status(404).send('Unknown color name: ' + input)
+  }
 })
 
 app.listen(3000)
+
+module.exports = app
